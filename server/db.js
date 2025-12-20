@@ -38,6 +38,18 @@ db.serialize(() => {
     )
   `);
 
+  // Password reset table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      code_hash TEXT NOT NULL,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
   // Listings table
   db.run(`
     CREATE TABLE IF NOT EXISTS listings (
@@ -51,5 +63,11 @@ db.serialize(() => {
       FOREIGN KEY (user_id) REFERENCES users(id)
     )
   `);
+
+  // Forward-compatible migrations for existing databases.
+  // (SQLite doesn't support IF NOT EXISTS on ADD COLUMN.)
+  db.run(`ALTER TABLE listings ADD COLUMN image_url TEXT`, () => {});
+  db.run(`ALTER TABLE listings ADD COLUMN contact_method TEXT`, () => {});
+  db.run(`ALTER TABLE listings ADD COLUMN contact_value TEXT`, () => {});
 });
 

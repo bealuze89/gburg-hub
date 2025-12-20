@@ -137,4 +137,74 @@ router.post("/login", async (req, res) => {
   });
 });
 
+// Forgot password: check account exists, send reset code
+router.post("/forgot", (req, res) => {
+  const { email } = req.body || {};
+
+  if (!isValidSchoolEmail(email)) {
+    return res.status(400).json({ error: "Invalid email." });
+  }
+
+  db.get(`SELECT id FROM users WHERE email = ?`, [email.toLowerCase()], (err, user) => {
+    if (err) return res.status(500).json({ error: "Database error." });
+    if (!user) return res.status(404).json({ error: "Account not found." });
+
+    const code = generateCode();
+    const codeHash = bcrypt.hashSync(code, 10);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    db.run(
+      `INSERT INTO password_resets (user_id, code_hash, expires_at) VALUES (?, ?, ?)`,
+      [user.id, codeHash, expiresAt],
+      async (err2) => {
+        if (err2) return res.status(500).json({ error: "Database error creating reset." });
+        await sendVerificationCode(email, code);
+        return res.json({ message: "Reset code sent to your email." });
+      }
+    );
+  });
+});
+
+// Reset password: validate reset code and set new password
+router.post("/reset", async (req, res) => {
+  const { email, code, newPassword } = req.body || {};
+
+  if (!isValidSchoolEmail(email)) {
+    return res.status(400).json({ error: "Invalid email." });
+  }
+  if (!code) {
+    return res.status(400).json({ error: "Code is required." });
+  }
+  if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
+    return res.status(400).json({ error: "New password must be at least 8 characters." });
+  }
+
+  db.get(`SELECT id FROM users WHERE email = ?`, [email.toLowerCase()], (err, user) => {
+    if (err) return res.status(500).json({ error: "Database error." });
+    if (!user) return res.status(404).json({ error: "Account not found." });
+
+    db.get(
+      `SELECT id, code_hash, expires_at FROM password_resets WHERE user_id = ? ORDER BY id DESC LIMIT 1`,
+      [user.id],
+      async (err2, row) => {
+        if (err2) return res.status(500).json({ error: "Database error." });
+        if (!row) return res.status(400).json({ error: "No reset request found." });
+
+        const expired = new Date(row.expires_at).getTime() < Date.now();
+        if (expired) return res.status(400).json({ error: "Code expired. Please request a new reset code." });
+
+        const ok = await bcrypt.compare(code, row.code_hash);
+        if (!ok) return res.status(400).json({ error: "Invalid code." });
+
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+        db.run(`UPDATE users SET password_hash = ? WHERE id = ?`, [passwordHash, user.id], (err3) => {
+          if (err3) return res.status(500).json({ error: "Could not update password." });
+          db.run(`DELETE FROM password_resets WHERE user_id = ?`, [user.id]);
+          return res.json({ message: "Password updated. Please log in." });
+        });
+      }
+    );
+  });
+});
+
 module.exports = router;

@@ -2,3 +2,6 @@ node_modules/
 .env
 *.sqlite
 *.db
+
+# Uploaded listing images
+server/uploads/
