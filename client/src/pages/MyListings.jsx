@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { apiCreateListing, apiDeleteListing, apiGetMyListings } from "../api/api.js";
+import { apiCreateListing, apiDeleteListing, apiGetMyListings, apiMarkListingSold } from "../api/api.js";
+
+const DESCRIPTION_LIMIT = 100;
 
 function ContactIcon({ method }) {
   const stroke = "currentColor";
@@ -92,6 +94,7 @@ export default function MyListings({ token, onOpenAuth }) {
   const [contactMethod, setContactMethod] = useState("email");
   const [contactValue, setContactValue] = useState("");
   const [handledDeepLink, setHandledDeepLink] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   async function load() {
     if (!token) return;
@@ -171,6 +174,24 @@ export default function MyListings({ token, onOpenAuth }) {
     }
   }
 
+  function requestDelete(id) {
+    setConfirmDeleteId(id);
+  }
+
+  async function handleMarkSold(id) {
+    if (!token) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await apiMarkListingSold(token, id);
+      setListings((prev) => prev.map((l) => (l.id === id ? { ...l, status: "sold", soldAt: new Date().toISOString() } : l)));
+    } catch (err) {
+      setError(err.message || "Failed to mark as sold.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function requireLoginToPost() {
     if (token) return true;
     onOpenAuth?.("Please sign in to post a listing.");
@@ -185,7 +206,7 @@ export default function MyListings({ token, onOpenAuth }) {
 
 
   return (
-    <div style={{ display: "grid", gap: 14, position: "relative" }}>
+    <div style={{ display: "grid", gap: 14, position: "relative", paddingBottom: 90 }}>
       <h1 style={{ margin: 0, fontSize: 24 }}>My Listings</h1>
 
       {!token ? <p style={{ margin: 0, opacity: 0.85 }}>Sign in to create and manage your listings.</p> : null}
@@ -195,6 +216,10 @@ export default function MyListings({ token, onOpenAuth }) {
 
       <div className="gbTilesGrid">
         {listings.map((l) => (
+          (() => {
+            const status = typeof l.status === "string" ? l.status.trim().toLowerCase() : "active";
+            const isSold = status === "sold";
+            return (
           <article
             key={l.id}
             style={{
@@ -204,13 +229,20 @@ export default function MyListings({ token, onOpenAuth }) {
               background: "var(--gb-surface)",
               backdropFilter: "blur(12px)",
               WebkitBackdropFilter: "blur(12px)",
-              display: "grid",
-              gridTemplateRows: "60% 40%",
-              aspectRatio: "1 / 1",
-              minHeight: 300,
+              display: "flex",
+              flexDirection: "column",
+              height: "58vh",
+              minHeight: 440,
             }}
           >
-            <div style={{ position: "relative", background: "rgba(31, 79, 163, 0.06)" }}>
+            <div
+              style={{
+                position: "relative",
+                background: "rgba(31, 79, 163, 0.06)",
+                flex: "0 0 38%",
+                minHeight: 240,
+              }}
+            >
               {l.imageUrl ? (
                 <img
                   src={l.imageUrl}
@@ -233,39 +265,130 @@ export default function MyListings({ token, onOpenAuth }) {
                   No photo
                 </div>
               )}
+
+              {isSold ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    left: 10,
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    background: "rgba(17, 17, 17, 0.55)",
+                    color: "rgba(255,255,255,0.95)",
+                    fontWeight: 800,
+                    fontSize: 12,
+                    letterSpacing: 0.8,
+                  }}
+                >
+                  SOLD
+                </div>
+              ) : null}
             </div>
 
-            <div style={{ padding: 12, display: "grid", gap: 8, overflow: "hidden" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-                <div style={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {l.title}
-                </div>
-                <div style={{ fontWeight: 700, color: "var(--gb-blue)" }}>${Number(l.price).toFixed(2)}</div>
+            <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10, overflow: "hidden", flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 20, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                {l.title}
               </div>
-              <div style={{ opacity: 0.9, minHeight: 44, overflow: "hidden" }}>{String(l.description || "").slice(0, 120)}{String(l.description || "").length > 120 ? "…" : ""}</div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+
+              <div style={{ fontWeight: 800, color: "var(--gb-blue)", fontSize: 18 }}>${Number(l.price).toFixed(2)}</div>
+
+              <div
+                style={{
+                  opacity: 0.92,
+                  overflow: "hidden",
+                  flex: 1,
+                  minHeight: 0,
+                  overflowWrap: "anywhere",
+                  wordBreak: "break-word",
+                }}
+              >
+                {String(l.description || "").slice(0, DESCRIPTION_LIMIT)}
+                {String(l.description || "").length > DESCRIPTION_LIMIT ? "…" : ""}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div
                   style={{
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
-                    maxWidth: "70%",
+                    maxWidth: "100%",
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
                   }}
                 >
-                  <ContactIcon method={l.contactMethod || "email"} />
-                  <span>{l.contact}</span>
+                  {isSold ? (
+                    <span style={{ fontWeight: 700, opacity: 0.9 }}>Sold</span>
+                  ) : (
+                    <>
+                      <ContactIcon method={l.contactMethod || "email"} />
+                      <span>{l.contact}</span>
+                    </>
+                  )}
                 </div>
-                <button type="button" onClick={() => handleDelete(l.id)} disabled={busy || !token}>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => handleMarkSold(l.id)}
+                  disabled={busy || !token || isSold}
+                  style={{ flex: 1 }}
+                >
+                  {isSold ? "Sold" : "Mark sold"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => requestDelete(l.id)}
+                  disabled={busy || !token}
+                  style={{ flex: 1 }}
+                >
                   Delete
                 </button>
               </div>
             </div>
           </article>
+            );
+          })()
         ))}
       </div>
+
+      {confirmDeleteId ? (
+        <ModalShell
+          title="Delete listing?"
+          onClose={() => {
+            if (busy) return;
+            setConfirmDeleteId(null);
+          }}
+        >
+          <p style={{ margin: 0, opacity: 0.9 }}>This can’t be undone.</p>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (busy) return;
+                setConfirmDeleteId(null);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const id = confirmDeleteId;
+                setConfirmDeleteId(null);
+                if (!id) return;
+                await handleDelete(id);
+              }}
+              disabled={busy}
+            >
+              Delete
+            </button>
+          </div>
+        </ModalShell>
+      ) : null}
 
       <button
         type="button"
@@ -314,7 +437,15 @@ export default function MyListings({ token, onOpenAuth }) {
             </label>
             <label>
               Description (optional)
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
+              <textarea
+                value={description}
+                maxLength={DESCRIPTION_LIMIT}
+                onChange={(e) => setDescription(String(e.target.value || "").slice(0, DESCRIPTION_LIMIT))}
+                rows={4}
+              />
+              <div style={{ marginTop: 6, fontSize: 12, opacity: 0.8 }}>
+                {String(description || "").length}/{DESCRIPTION_LIMIT}
+              </div>
             </label>
             <label>
               Price
@@ -335,7 +466,16 @@ export default function MyListings({ token, onOpenAuth }) {
             ) : (
               <label>
                 {contactMethod === "phone" ? "Phone Number" : "Instagram"}
-                <input value={contactValue} onChange={(e) => setContactValue(e.target.value)} />
+                <input
+                  value={contactValue}
+                  inputMode={contactMethod === "phone" ? "numeric" : undefined}
+                  pattern={contactMethod === "phone" ? "[0-9]*" : undefined}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (contactMethod === "phone") return setContactValue(String(raw || "").replace(/\D/g, ""));
+                    return setContactValue(raw);
+                  }}
+                />
               </label>
             )}
 

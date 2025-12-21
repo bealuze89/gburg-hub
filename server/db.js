@@ -69,5 +69,12 @@ db.serialize(() => {
   db.run(`ALTER TABLE listings ADD COLUMN image_url TEXT`, () => {});
   db.run(`ALTER TABLE listings ADD COLUMN contact_method TEXT`, () => {});
   db.run(`ALTER TABLE listings ADD COLUMN contact_value TEXT`, () => {});
+
+  // Listing lifecycle
+  db.run(`ALTER TABLE listings ADD COLUMN status TEXT`, () => {});
+  db.run(`ALTER TABLE listings ADD COLUMN sold_at DATETIME`, () => {});
+
+  // Expiry warning tracking
+  db.run(`ALTER TABLE listings ADD COLUMN expiry_warned_at DATETIME`, () => {});
 });
 

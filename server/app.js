@@ -8,6 +8,7 @@ require("./db");
 const healthRoutes = require("./routes/health");
 const authRoutes = require("./routes/auth");
 const listingsRoutes = require("./routes/listings");
+const { runListingCleanup } = require("./utils/listingCleanup");
 
 const app = express();
 
@@ -35,6 +36,21 @@ app.use("/api", listingsRoutes);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+
+  // Periodic cleanup: sold (7 days) and active (30 days) + 29-day warning email
+  const run = async () => {
+    try {
+      const result = await runListingCleanup();
+      if (result.warned || result.deletedSold || result.deletedActive) {
+        console.log("Cleanup complete:", result);
+      }
+    } catch (err) {
+      console.error("Cleanup failed (non-fatal):", err.message);
+    }
+  };
+
+  setTimeout(run, 3_000);
+  setInterval(run, 60 * 60 * 1000);
 });
 
 

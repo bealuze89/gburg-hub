@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Route, Routes } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Navbar from "./components/Navbar.jsx";
 import Listings from "./pages/Listings.jsx";
 import MyListings from "./pages/MyListings.jsx";
@@ -7,6 +8,7 @@ import AuthModal from "./components/AuthModal.jsx";
 import { clearToken, getToken } from "./api/api.js";
 
 export default function App() {
+  const navigate = useNavigate();
   const [token, setTokenState] = useState(() => getToken());
   const [authOpen, setAuthOpen] = useState(false);
   const [authNotice, setAuthNotice] = useState(null);
@@ -23,6 +25,7 @@ export default function App() {
         onLogout={() => {
           clearToken();
           setTokenState(null);
+          navigate("/", { replace: true });
         }}
       />
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: 16, width: "100%" }}>

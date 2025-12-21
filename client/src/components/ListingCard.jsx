@@ -45,12 +45,23 @@ function ContactIcon({ method }) {
   );
 }
 
+function EyeIcon() {
+  return (
+    <svg aria-hidden="true" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 export default function ListingCard({ listing, contact, contactMethod, onViewContact, isLoggedIn, onRequireAuth }) {
-  const description = truncate(listing.description, 120);
+  const description = truncate(listing.description, 100);
   const price = Number(listing.price);
   const formattedPrice = Number.isFinite(price) ? `$${price.toFixed(2)}` : "";
   const imageUrl = listing.imageUrl || listing.image_url;
   const method = contactMethod || inferContactMethod(contact);
+  const status = typeof listing.status === "string" ? listing.status.trim().toLowerCase() : "active";
+  const isSold = status === "sold";
 
   return (
     <article
@@ -61,13 +72,20 @@ export default function ListingCard({ listing, contact, contactMethod, onViewCon
         background: "var(--gb-surface)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
-        display: "grid",
-        gridTemplateRows: "60% 40%",
-        aspectRatio: "1 / 1",
-        minHeight: 300,
+        display: "flex",
+        flexDirection: "column",
+        height: "58vh",
+        minHeight: 440,
       }}
     >
-      <div style={{ position: "relative", background: "rgba(31, 79, 163, 0.06)" }}>
+      <div
+        style={{
+          position: "relative",
+          background: "rgba(31, 79, 163, 0.06)",
+          flex: "0 0 38%",
+          minHeight: 240,
+        }}
+      >
         {imageUrl ? (
           <img
             src={imageUrl}
@@ -91,45 +109,66 @@ export default function ListingCard({ listing, contact, contactMethod, onViewCon
             No photo
           </div>
         )}
-      </div>
 
-      <div style={{ padding: 12, display: "grid", gap: 8, overflow: "hidden" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-          <div style={{ fontWeight: 800, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {listing.title}
-          </div>
-          <div style={{ fontWeight: 700, color: "var(--gb-blue)" }}>{formattedPrice}</div>
-        </div>
-
-        <div style={{ opacity: 0.9, minHeight: 44 }}>{description}</div>
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        {isSold ? (
           <div
             style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              maxWidth: "70%",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
+              position: "absolute",
+              top: 10,
+              left: 10,
+              padding: "6px 10px",
+              borderRadius: 999,
+              background: "rgba(17, 17, 17, 0.55)",
+              color: "rgba(255,255,255,0.95)",
+              fontWeight: 800,
+              fontSize: 12,
+              letterSpacing: 0.8,
             }}
           >
-            <ContactIcon method={method || "email"} />
-            <span>
-              {contact ? contact : isLoggedIn ? "Hidden" : "Sign in"}
-            </span>
+            SOLD
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              if (!isLoggedIn) return onRequireAuth?.();
-              return onViewContact?.(listing.id);
-            }}
-          >
-            View
-          </button>
+        ) : null}
+      </div>
+
+      <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10, overflow: "hidden", flex: 1 }}>
+        <div style={{ fontWeight: 800, fontSize: 20, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+          {listing.title}
         </div>
+
+        <div style={{ fontWeight: 800, color: "var(--gb-blue)", fontSize: 18 }}>{formattedPrice}</div>
+
+        <div
+          style={{
+            opacity: 0.92,
+            overflow: "hidden",
+            flex: 1,
+            minHeight: 0,
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
+          }}
+        >
+          {description}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 22 }}>
+          <ContactIcon method={method || "email"} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {isSold ? "Sold" : contact ? contact : isLoggedIn ? "Hidden" : "Sign in"}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          disabled={isSold}
+          onClick={() => {
+            if (!isLoggedIn) return onRequireAuth?.();
+            if (isSold) return;
+            return onViewContact?.(listing.id);
+          }}
+          style={{ width: "100%", marginTop: 6 }}
+        >
+          {isSold ? "Sold" : contact ? "Hide contact" : "Contact"}
+        </button>
       </div>
     </article>
   );

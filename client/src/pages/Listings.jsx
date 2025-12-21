@@ -37,6 +37,16 @@ export default function Listings({ token, onOpenAuth }) {
       onOpenAuth?.();
       return;
     }
+
+    // Toggle: if already visible, hide it.
+    if (contactById[listingId]?.contact) {
+      setContactById((prev) => {
+        const next = { ...prev };
+        delete next[listingId];
+        return next;
+      });
+      return;
+    }
     try {
       const res = await apiGetListingContact(token, listingId);
       setContactById((prev) => ({
@@ -52,7 +62,7 @@ export default function Listings({ token, onOpenAuth }) {
   }
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div style={{ display: "grid", gap: 14, paddingBottom: 90 }}>
       <h1 style={{ margin: 0, fontSize: 24 }}>Listings</h1>
 
       {loading ? <p>Loading...</p> : null}

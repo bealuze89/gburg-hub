@@ -5,3 +5,9 @@ node_modules/
 
 # Uploaded listing images
 server/uploads/
+
+# Local dev verification code log
+server/verification-codes.log
+
+# User-requested verification log file
+server/verifiction

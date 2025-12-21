@@ -68,6 +68,10 @@ export function apiDeleteListing(token, id) {
 	return request(`/api/listings/${id}`, { method: "DELETE", token });
 }
 
+export function apiMarkListingSold(token, id) {
+	return request(`/api/listings/${id}/sold`, { method: "PATCH", token });
+}
+
 export function apiGetListingContact(token, id) {
 	return request(`/api/listings/${id}/contact`, { token });
 }

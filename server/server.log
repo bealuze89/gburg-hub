@@ -1,0 +1,16 @@
+
+> server@1.0.0 start
+> node app.js
+
+[dotenv@17.2.3] injecting env (8) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+Server running on port 3000
+Connected to SQLite database
+Email sending failed (non-fatal): Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to
+535 5.7.8  https://support.google.com/mail/?p=BadCredentials 46e09a7af769-7cc66727e37sm4669406a34.1 - gsmtp
+[DEV MODE] Verification code for kebebeab01@gettysburg.edu: 367248
+Email sending failed (non-fatal): Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to
+535 5.7.8  https://support.google.com/mail/?p=BadCredentials 46e09a7af769-7cc667d4f57sm4603704a34.18 - gsmtp
+[DEV MODE] Verification code for kebebeab01@gettysburg.edu: 386010
+Email sending failed (non-fatal): Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to
+535 5.7.8  https://support.google.com/mail/?p=BadCredentials 586e51a60fabf-3fdaabbf2e6sm4254453fac.17 - gsmtp
+[DEV MODE] Verification code for kebeab01@gettysburg.edu: 143670

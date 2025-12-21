@@ -40,6 +40,28 @@ function absoluteUrl(req, maybePath) {
 	return `${req.protocol}://${req.get("host")}/${value}`;
 }
 
+function normalizeStatus(value) {
+	const v = typeof value === "string" ? value.trim().toLowerCase() : "";
+	return v === "sold" ? "sold" : "active";
+}
+
+function deleteListingAndImageById(listingId, cb) {
+	db.get(`SELECT image_url FROM listings WHERE id = ?`, [listingId], (err, row) => {
+		if (err) return cb(err);
+		const imageUrl = row?.image_url;
+		db.run(`DELETE FROM listings WHERE id = ?`, [listingId], (err2) => {
+			if (err2) return cb(err2);
+			if (imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("/uploads/")) {
+				const filename = imageUrl.replace("/uploads/", "");
+				const filePath = path.join(uploadsDir, filename);
+				fs.unlink(filePath, () => cb(null));
+				return;
+			}
+			return cb(null);
+		});
+	});
+}
+
 function requireVerifiedUser(req, res, next) {
 	db.get(`SELECT is_verified FROM users WHERE id = ?`, [req.userId], (err, row) => {
 		if (err) return res.status(500).json({ error: "Database error." });
@@ -58,6 +80,8 @@ router.get("/listings", (req, res) => {
 			description,
 			price,
 			image_url as imageUrl,
+			COALESCE(status, 'active') as status,
+			sold_at as soldAt,
 			user_id as userId,
 			created_at as createdAt
 		FROM listings
@@ -65,7 +89,11 @@ router.get("/listings", (req, res) => {
 		[],
 		(err, rows) => {
 			if (err) return res.status(500).json({ error: "Database error." });
-			const mapped = (rows || []).map((r) => ({ ...r, imageUrl: absoluteUrl(req, r.imageUrl) }));
+			const mapped = (rows || []).map((r) => ({
+				...r,
+				imageUrl: absoluteUrl(req, r.imageUrl),
+				status: normalizeStatus(r.status),
+			}));
 			return res.json(mapped);
 		}
 	);
@@ -81,6 +109,9 @@ router.post("/listings", authMiddleware, requireVerifiedUser, upload.single("ima
 	}
 	if (description !== undefined && description !== null && typeof description !== "string") {
 		return res.status(400).json({ error: "Invalid description." });
+	}
+	if (typeof description === "string" && description.length > 100) {
+		return res.status(400).json({ error: "Description must be 100 characters or less." });
 	}
 	if (price === undefined || price === null || Number.isNaN(Number(price))) {
 		return res.status(400).json({ error: "Price is required." });
@@ -106,6 +137,10 @@ router.post("/listings", authMiddleware, requireVerifiedUser, upload.single("ima
 	if (normalizedMethod !== "email" && !normalizedContactValue) {
 		return res.status(400).json({ error: "Contact value is required." });
 	}
+	if (normalizedMethod === "phone") {
+		const ok = /^\d+$/.test(normalizedContactValue);
+		if (!ok) return res.status(400).json({ error: "Phone must contain digits only." });
+	}
 
 	function computeContactDisplay(method, value) {
 		if (method === "email") return value;
@@ -126,8 +161,8 @@ router.post("/listings", authMiddleware, requireVerifiedUser, upload.single("ima
 			const finalContactValue = String(row.email || "");
 			const finalContactDisplay = computeContactDisplay("email", finalContactValue);
 			db.run(
-				`INSERT INTO listings (title, description, price, contact, user_id, image_url, contact_method, contact_value)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				`INSERT INTO listings (title, description, price, contact, user_id, image_url, contact_method, contact_value, status)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				[
 					normalizedTitle,
 					normalizedDescription,
@@ -137,6 +172,7 @@ router.post("/listings", authMiddleware, requireVerifiedUser, upload.single("ima
 					storedImagePath,
 					"email",
 					finalContactValue,
+					"active",
 				],
 				function (err2) {
 					if (err2) return res.status(500).json({ error: "Database error." });
@@ -149,8 +185,8 @@ router.post("/listings", authMiddleware, requireVerifiedUser, upload.single("ima
 
 	const finalContactDisplay = computeContactDisplay(normalizedMethod, normalizedContactValue);
 	db.run(
-		`INSERT INTO listings (title, description, price, contact, user_id, image_url, contact_method, contact_value)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO listings (title, description, price, contact, user_id, image_url, contact_method, contact_value, status)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			normalizedTitle,
 			normalizedDescription,
@@ -160,6 +196,7 @@ router.post("/listings", authMiddleware, requireVerifiedUser, upload.single("ima
 			storedImagePath,
 			normalizedMethod,
 			normalizedContactValue,
+			"active",
 		],
 		function (err) {
 			if (err) return res.status(500).json({ error: "Database error." });
@@ -176,6 +213,8 @@ router.get("/mylistings", authMiddleware, requireVerifiedUser, (req, res) => {
 			description,
 			price,
 			image_url as imageUrl,
+			COALESCE(status, 'active') as status,
+			sold_at as soldAt,
 			contact_method as contactMethod,
 			contact_value as contactValue,
 			contact,
@@ -187,7 +226,11 @@ router.get("/mylistings", authMiddleware, requireVerifiedUser, (req, res) => {
 		[req.userId],
 		(err, rows) => {
 			if (err) return res.status(500).json({ error: "Database error." });
-			const mapped = (rows || []).map((r) => ({ ...r, imageUrl: absoluteUrl(req, r.imageUrl) }));
+			const mapped = (rows || []).map((r) => ({
+				...r,
+				imageUrl: absoluteUrl(req, r.imageUrl),
+				status: normalizeStatus(r.status),
+			}));
 			return res.json(mapped);
 		}
 	);
@@ -209,9 +252,14 @@ router.get("/listings/:id/contact", authMiddleware, requireVerifiedUser, (req, r
 		return value || "";
 	}
 
-	db.get(`SELECT contact_method, contact_value, contact FROM listings WHERE id = ?`, [listingId], (err, row) => {
+	db.get(
+		`SELECT COALESCE(status, 'active') as status, contact_method, contact_value, contact FROM listings WHERE id = ?`,
+		[listingId],
+		(err, row) => {
 		if (err) return res.status(500).json({ error: "Database error." });
 		if (!row) return res.status(404).json({ error: "Listing not found." });
+		const status = normalizeStatus(row.status);
+		if (status === "sold") return res.status(403).json({ error: "Listing is sold." });
 		const method = typeof row.contact_method === "string" ? row.contact_method : null;
 		const value = typeof row.contact_value === "string" ? row.contact_value : null;
 		return res.json({
@@ -219,6 +267,28 @@ router.get("/listings/:id/contact", authMiddleware, requireVerifiedUser, (req, r
 			contactMethod: method,
 			contactValue: value,
 		});
+		}
+	);
+});
+
+// PATCH /api/listings/:id/sold - Only owner can mark sold
+router.patch("/listings/:id/sold", authMiddleware, (req, res) => {
+	const listingId = Number(req.params.id);
+	if (!Number.isInteger(listingId)) return res.status(400).json({ error: "Invalid listing id." });
+
+	db.get(`SELECT id, user_id FROM listings WHERE id = ?`, [listingId], (err, row) => {
+		if (err) return res.status(500).json({ error: "Database error." });
+		if (!row) return res.status(404).json({ error: "Listing not found." });
+		if (row.user_id !== req.userId) return res.status(403).json({ error: "Forbidden." });
+
+		db.run(
+			`UPDATE listings SET status = 'sold', sold_at = CURRENT_TIMESTAMP WHERE id = ?`,
+			[listingId],
+			(err2) => {
+				if (err2) return res.status(500).json({ error: "Database error." });
+				return res.json({ message: "Marked as sold." });
+			}
+		);
 	});
 });
 
@@ -232,7 +302,7 @@ router.delete("/listings/:id", authMiddleware, (req, res) => {
 		if (!row) return res.status(404).json({ error: "Listing not found." });
 		if (row.user_id !== req.userId) return res.status(403).json({ error: "Forbidden." });
 
-		db.run(`DELETE FROM listings WHERE id = ?`, [listingId], (err2) => {
+		deleteListingAndImageById(listingId, (err2) => {
 			if (err2) return res.status(500).json({ error: "Database error." });
 			return res.json({ message: "Listing deleted." });
 		});
