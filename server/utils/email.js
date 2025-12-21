@@ -55,7 +55,7 @@ async function sendVerificationCode(email, code) {
     await transporter.sendMail({
       from: process.env.MAIL_FROM,
       to: email,
-      subject: "Your Gburg Hub verification code",
+      subject: "Your Burg Market verification code",
       text: `Your verification code is: ${code}\n\nThis code expires in 10 minutes.`,
     });
   } catch (err) {
@@ -84,12 +84,12 @@ async function sendListingExpiryWarning(email, { title, listingId, daysLeft }) {
     await transporter.sendMail({
       from: process.env.MAIL_FROM,
       to: email,
-      subject: "Your Gburg Hub listing will expire soon",
+      subject: "Your Burg Market listing will expire soon",
       text:
         `Hi!\n\n` +
         `Your listing "${safeTitle}" will expire in about ${safeDaysLeft} day(s) and will be automatically removed if it is not marked sold.\n\n` +
         `If it has sold, please mark it as sold in My Listings.\n\n` +
-        `— Gburg Hub`,
+        `— Burg Market`,
     });
   } catch (err) {
     console.error("Expiry warning email failed (non-fatal):", err.message);

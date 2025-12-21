@@ -24,13 +24,14 @@ export default function Navbar({ isLoggedIn, onOpenAuth, onLogout }) {
             letterSpacing: 0.2,
           }}
         >
-          Gburg Hub
+          Burg Market
         </Link>
 
         <nav style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <NavLink to="/" end>
             Listings
           </NavLink>
+          <NavLink to="/faq">FAQ</NavLink>
           <NavLink
             to="/mylistings"
             onClick={(e) => {
