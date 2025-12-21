@@ -7,6 +7,7 @@
   --gb-orange: #e0892d;
   --gb-surface: rgba(255, 255, 255, 0.72);
   --gb-border: rgba(17, 17, 17, 0.12);
+  --gb-danger: #d10000;
 
   color-scheme: light;
   color: #111111;
@@ -99,6 +100,16 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+button.gbDangerButton {
+  background-color: rgba(209, 0, 0, 0.10);
+  color: var(--gb-danger);
+  border-color: rgba(209, 0, 0, 0.22);
+}
+
+button.gbDangerButton:hover {
+  border-color: rgba(209, 0, 0, 0.45);
+}
+
 
 input:not([type="file"]),
 textarea,
@@ -118,4 +129,9 @@ input[type="file"] {
 
 textarea {
   resize: vertical;
+}
+
+.gbWarningText {
+  color: var(--gb-danger);
+  font-weight: 700;
 }

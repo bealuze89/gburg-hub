@@ -83,7 +83,7 @@ export default function MyListings({ token, onOpenAuth }) {
   const location = useLocation();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [pageError, setPageError] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -93,18 +93,19 @@ export default function MyListings({ token, onOpenAuth }) {
   const [imageFile, setImageFile] = useState(null);
   const [contactMethod, setContactMethod] = useState("email");
   const [contactValue, setContactValue] = useState("");
+  const [createError, setCreateError] = useState(null);
   const [handledDeepLink, setHandledDeepLink] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   async function load() {
     if (!token) return;
     setLoading(true);
-    setError(null);
+    setPageError(null);
     try {
       const data = await apiGetMyListings(token);
       setListings(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.message || "Failed to load your listings.");
+      setPageError(err.message || "Failed to load your listings.");
     } finally {
       setLoading(false);
     }
@@ -131,16 +132,37 @@ export default function MyListings({ token, onOpenAuth }) {
       return;
     }
     setBusy(true);
-    setError(null);
+    setCreateError(null);
     try {
+      const safeTitle = String(title || "").trim();
+      if (!safeTitle) {
+        setCreateError("Please add a title.");
+        return;
+      }
+
+	  const priceText = String(price ?? "").trim();
+	  if (!priceText) {
+		  setCreateError("Please add a price.");
+		  return;
+	  }
+	  const safePrice = Number(priceText);
+	  if (!Number.isFinite(safePrice)) {
+		  setCreateError("Please enter a valid price.");
+		  return;
+	  }
+	  if (safePrice < 0) {
+		  setCreateError("Price must be non-negative.");
+		  return;
+	  }
+
       if (!imageFile) {
-        setError("Please attach a photo.");
+        setCreateError("Please attach a photo.");
         return;
       }
       await apiCreateListing(token, {
-        title,
+        title: safeTitle,
         description,
-        price: Number(price),
+        price: safePrice,
         imageUrl: imageFile,
         contactMethod,
         contactValue: contactMethod === "email" ? undefined : contactValue,
@@ -154,7 +176,7 @@ export default function MyListings({ token, onOpenAuth }) {
       setCreateOpen(false);
       await load();
     } catch (err) {
-      setError(err.message || "Failed to create listing.");
+      setCreateError(err.message || "Failed to create listing.");
     } finally {
       setBusy(false);
     }
@@ -163,12 +185,12 @@ export default function MyListings({ token, onOpenAuth }) {
   async function handleDelete(id) {
     if (!token) return;
     setBusy(true);
-    setError(null);
+    setPageError(null);
     try {
       await apiDeleteListing(token, id);
       setListings((prev) => prev.filter((l) => l.id !== id));
     } catch (err) {
-      setError(err.message || "Failed to delete listing.");
+      setPageError(err.message || "Failed to delete listing.");
     } finally {
       setBusy(false);
     }
@@ -181,12 +203,12 @@ export default function MyListings({ token, onOpenAuth }) {
   async function handleMarkSold(id) {
     if (!token) return;
     setBusy(true);
-    setError(null);
+    setPageError(null);
     try {
       await apiMarkListingSold(token, id);
       setListings((prev) => prev.map((l) => (l.id === id ? { ...l, status: "sold", soldAt: new Date().toISOString() } : l)));
     } catch (err) {
-      setError(err.message || "Failed to mark as sold.");
+      setPageError(err.message || "Failed to mark as sold.");
     } finally {
       setBusy(false);
     }
@@ -200,7 +222,8 @@ export default function MyListings({ token, onOpenAuth }) {
 
   function openCreate() {
     if (!requireLoginToPost()) return;
-    setError(null);
+    setPageError(null);
+    setCreateError(null);
     setCreateOpen(true);
   }
 
@@ -211,7 +234,7 @@ export default function MyListings({ token, onOpenAuth }) {
 
       {!token ? <p style={{ margin: 0, opacity: 0.85 }}>Sign in to create and manage your listings.</p> : null}
 
-      {error ? <p style={{ color: "#ffb4b4", margin: 0 }}>{error}</p> : null}
+      {pageError ? <p className="gbWarningText" style={{ margin: 0 }}>{pageError}</p> : null}
       {loading && token ? <p style={{ margin: 0 }}>Loading...</p> : null}
 
       <div className="gbTilesGrid">
@@ -343,6 +366,7 @@ export default function MyListings({ token, onOpenAuth }) {
                   type="button"
                   onClick={() => requestDelete(l.id)}
                   disabled={busy || !token}
+                  className="gbDangerButton"
                   style={{ flex: 1 }}
                 >
                   Delete
@@ -383,6 +407,7 @@ export default function MyListings({ token, onOpenAuth }) {
                 await handleDelete(id);
               }}
               disabled={busy}
+              className="gbDangerButton"
             >
               Delete
             </button>
@@ -419,9 +444,11 @@ export default function MyListings({ token, onOpenAuth }) {
           title="Add Product"
           onClose={() => {
             if (busy) return;
+            setCreateError(null);
             setCreateOpen(false);
           }}
         >
+          {createError ? <p className="gbWarningText" style={{ margin: 0 }}>{createError}</p> : null}
           <form onSubmit={handleCreate} style={{ display: "grid", gap: 10 }}>
             <label>
               Photo (required)
@@ -449,7 +476,15 @@ export default function MyListings({ token, onOpenAuth }) {
             </label>
             <label>
               Price
-              <input value={price} onChange={(e) => setPrice(e.target.value)} />
+        <input
+        type="number"
+        inputMode="decimal"
+        min="0"
+        step="0.01"
+        required
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        />
             </label>
 
             <label>
@@ -484,6 +519,7 @@ export default function MyListings({ token, onOpenAuth }) {
                 type="button"
                 onClick={() => {
                   if (busy) return;
+                  setCreateError(null);
                   setCreateOpen(false);
                 }}
               >

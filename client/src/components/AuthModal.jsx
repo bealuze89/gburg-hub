@@ -168,7 +168,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess, notice }) {
 
         {typeof notice === "string" && notice.trim() ? <p style={{ marginTop: 12 }}>{notice}</p> : null}
 
-        {error ? <p style={{ marginTop: 12, color: "#ffb4b4" }}>{error}</p> : null}
+        {error ? <p className="gbWarningText" style={{ marginTop: 12 }}>{error}</p> : null}
         {message ? <p style={{ marginTop: 12 }}>{message}</p> : null}
 
         {mode === "register" ? (

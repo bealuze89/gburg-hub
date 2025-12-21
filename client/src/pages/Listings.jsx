@@ -66,7 +66,7 @@ export default function Listings({ token, onOpenAuth }) {
       <h1 style={{ margin: 0, fontSize: 24 }}>Listings</h1>
 
       {loading ? <p>Loading...</p> : null}
-      {error ? <p style={{ color: "#ffb4b4" }}>{error}</p> : null}
+      {error ? <p className="gbWarningText">{error}</p> : null}
 
       <div className="gbTilesGrid">
         {listings.map((listing) => (

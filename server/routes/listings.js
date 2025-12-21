@@ -113,7 +113,8 @@ router.post("/listings", authMiddleware, requireVerifiedUser, upload.single("ima
 	if (typeof description === "string" && description.length > 100) {
 		return res.status(400).json({ error: "Description must be 100 characters or less." });
 	}
-	if (price === undefined || price === null || Number.isNaN(Number(price))) {
+	const priceRaw = typeof price === "string" ? price.trim() : price;
+	if (priceRaw === undefined || priceRaw === null || priceRaw === "" || Number.isNaN(Number(priceRaw))) {
 		return res.status(400).json({ error: "Price is required." });
 	}
 	if (!req.file) {
