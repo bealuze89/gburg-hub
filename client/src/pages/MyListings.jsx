@@ -450,14 +450,48 @@ export default function MyListings({ token, onOpenAuth }) {
         >
           {createError ? <p className="gbWarningText" style={{ margin: 0 }}>{createError}</p> : null}
           <form onSubmit={handleCreate} style={{ display: "grid", gap: 10 }}>
-            <label>
-              Photo (required)
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={{ fontWeight: 600 }}>Photo (required)</div>
               <input
+                id="gbListingPhoto"
                 type="file"
                 accept="image/*"
                 onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                style={{ display: "none" }}
               />
-            </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <label
+                  htmlFor="gbListingPhoto"
+                  style={{
+                    borderRadius: 8,
+                    border: "1px solid var(--gb-border)",
+                    padding: "0.6em 1.2em",
+                    fontSize: "1em",
+                    fontWeight: 500,
+                    fontFamily: "inherit",
+                    backgroundColor: "rgba(31, 79, 163, 0.10)",
+                    color: "var(--gb-blue)",
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                >
+                  Choose photo
+                </label>
+                <span
+                  style={{
+                    opacity: imageFile ? 0.9 : 0.7,
+                    fontSize: 14,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    maxWidth: "100%",
+                  }}
+                  title={imageFile?.name || ""}
+                >
+                  {imageFile ? imageFile.name : "No file chosen"}
+                </span>
+              </div>
+            </div>
             <label>
               Title
               <input value={title} onChange={(e) => setTitle(e.target.value)} />
