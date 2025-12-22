@@ -1,4 +1,12 @@
-const BASE_URL = "http://localhost:3000";
+function normalizeBaseUrl(value) {
+	const raw = typeof value === "string" ? value.trim() : "";
+	if (!raw) return "";
+	return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+}
+
+const BASE_URL =
+	normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL) ||
+	"http://localhost:3000";
 const TOKEN_KEY = "token";
 
 export function getToken() {
