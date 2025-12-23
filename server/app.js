@@ -22,9 +22,26 @@ try {
 }
 
 // Middleware
+const allowedOrigins = [
+  "https://burg-market.com",
+  "https://www.burg-market.com",
+  "https://api.burg-market.com",
+];
+
 app.use(
   cors({
-    origin: ["https://burg-market.com", "https://www.burg-market.com"],
+    origin: (origin, callback) => {
+      // Allow Safari/WebKit "null" origin
+      if (!origin || origin === "null") {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );
