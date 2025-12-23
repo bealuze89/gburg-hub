@@ -18,21 +18,46 @@ const BASE_URL =
 	"http://localhost:3000";
 const TOKEN_KEY = "token";
 
+function safeStorageGet(key) {
+	try {
+		return localStorage.getItem(key);
+	} catch {
+		return null;
+	}
+}
+
+function safeStorageSet(key, value) {
+	try {
+		localStorage.setItem(key, value);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function safeStorageRemove(key) {
+	try {
+		localStorage.removeItem(key);
+	} catch {
+		// ignore
+	}
+}
+
 export function getToken() {
-	return normalizeToken(localStorage.getItem(TOKEN_KEY));
+	return normalizeToken(safeStorageGet(TOKEN_KEY));
 }
 
 export function setToken(token) {
 	const normalized = normalizeToken(token);
 	if (!normalized) {
-		localStorage.removeItem(TOKEN_KEY);
+		safeStorageRemove(TOKEN_KEY);
 		return;
 	}
-	localStorage.setItem(TOKEN_KEY, normalized);
+	safeStorageSet(TOKEN_KEY, normalized);
 }
 
 export function clearToken() {
-	localStorage.removeItem(TOKEN_KEY);
+	safeStorageRemove(TOKEN_KEY);
 }
 
 async function request(path, { method = "GET", body, token } = {}) {
@@ -41,20 +66,30 @@ async function request(path, { method = "GET", body, token } = {}) {
 	const normalizedToken = normalizeToken(token);
 	if (normalizedToken) headers.Authorization = `Bearer ${normalizedToken}`;
 
-	const res = await fetch(`${BASE_URL}${path}`, {
-		method,
-		headers,
-		credentials: "include",
-		body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
-	});
+	let res;
+	try {
+		res = await fetch(`${BASE_URL}${path}`, {
+			method,
+			headers,
+			credentials: "include",
+			body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
+		});
+	} catch (err) {
+		const detail = err && typeof err.message === "string" ? err.message : String(err);
+		throw new Error(`Network error (${method} ${path}): ${detail}`);
+	}
 
 	const contentType = res.headers.get("content-type") || "";
 	const isJson = contentType.includes("application/json");
 	const data = isJson ? await res.json().catch(() => null) : await res.text().catch(() => null);
 
 	if (!res.ok) {
-		const message = (data && data.error) || (typeof data === "string" ? data : null) || "Request failed.";
-		const err = new Error(message);
+		const bodyText =
+			(data && typeof data === "object" && !Array.isArray(data) ? JSON.stringify(data) : null) ||
+			(typeof data === "string" ? data : null);
+		const baseMessage = (data && data.error) || (typeof data === "string" ? data : null) || "Request failed.";
+		const preview = bodyText ? bodyText.slice(0, 400) : "";
+		const err = new Error(`HTTP ${res.status}: ${baseMessage}${preview && preview !== baseMessage ? ` — ${preview}` : ""}`);
 		err.status = res.status;
 		err.data = data;
 		throw err;
