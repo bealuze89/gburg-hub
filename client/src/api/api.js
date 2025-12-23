@@ -4,17 +4,31 @@ function normalizeBaseUrl(value) {
 	return raw.endsWith("/") ? raw.slice(0, -1) : raw;
 }
 
+function normalizeToken(value) {
+	if (typeof value !== "string") return null;
+	const trimmed = value.trim();
+	if (!trimmed) return null;
+	const lowered = trimmed.toLowerCase();
+	if (lowered === "null" || lowered === "undefined") return null;
+	return trimmed;
+}
+
 const BASE_URL =
 	normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL) ||
 	"http://localhost:3000";
 const TOKEN_KEY = "token";
 
 export function getToken() {
-	return localStorage.getItem(TOKEN_KEY);
+	return normalizeToken(localStorage.getItem(TOKEN_KEY));
 }
 
 export function setToken(token) {
-	localStorage.setItem(TOKEN_KEY, token);
+	const normalized = normalizeToken(token);
+	if (!normalized) {
+		localStorage.removeItem(TOKEN_KEY);
+		return;
+	}
+	localStorage.setItem(TOKEN_KEY, normalized);
 }
 
 export function clearToken() {
@@ -24,7 +38,8 @@ export function clearToken() {
 async function request(path, { method = "GET", body, token } = {}) {
 	const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
 	const headers = isFormData ? {} : { "Content-Type": "application/json" };
-	if (token) headers.Authorization = `Bearer ${token}`;
+	const normalizedToken = normalizeToken(token);
+	if (normalizedToken) headers.Authorization = `Bearer ${normalizedToken}`;
 
 	const res = await fetch(`${BASE_URL}${path}`, {
 		method,
