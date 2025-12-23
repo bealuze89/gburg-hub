@@ -65,10 +65,11 @@ async function request(path, { method = "GET", body, token } = {}) {
 	const headers = isFormData ? {} : { "Content-Type": "application/json" };
 	const normalizedToken = normalizeToken(token);
 	if (normalizedToken) headers.Authorization = `Bearer ${normalizedToken}`;
+	const url = `${BASE_URL}${path}`;
 
 	let res;
 	try {
-		res = await fetch(`${BASE_URL}${path}`, {
+		res = await fetch(url, {
 			method,
 			headers,
 			credentials: "include",
@@ -76,7 +77,18 @@ async function request(path, { method = "GET", body, token } = {}) {
 		});
 	} catch (err) {
 		const detail = err && typeof err.message === "string" ? err.message : String(err);
-		throw new Error(`Network error (${method} ${path}): ${detail}`);
+		const lower = String(detail || "").toLowerCase();
+		const looksLikeCors =
+			lower.includes("failed to fetch") ||
+			lower.includes("load failed") ||
+			lower.includes("networkerror") ||
+			lower.includes("cors");
+		const hint = looksLikeCors
+			? " This usually means the API request was blocked (CORS), the API is unreachable, or the browser blocked the request in private/mobile mode. Check that VITE_API_BASE_URL is correct and that the API allows your site origin."
+			: "";
+		const e = new Error(`Network error (${method} ${url}): ${detail}.${hint}`);
+		e.isNetworkError = true;
+		throw e;
 	}
 
 	const contentType = res.headers.get("content-type") || "";
