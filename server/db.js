@@ -76,5 +76,22 @@ db.serialize(() => {
 
   // Expiry warning tracking
   db.run(`ALTER TABLE listings ADD COLUMN expiry_warned_at DATETIME`, () => {});
+
+  // Data hygiene: older versions stored local-disk upload paths (gitignored) or localhost URLs.
+  // These break in production now that images are stored in Cloudflare R2.
+  db.run(
+    `UPDATE listings
+     SET image_url = NULL
+     WHERE image_url IS NOT NULL
+       AND (
+         image_url LIKE '/uploads/%'
+         OR image_url LIKE 'uploads/%'
+         OR image_url LIKE 'http://localhost%'
+         OR image_url LIKE 'https://localhost%'
+         OR image_url LIKE 'http://127.0.0.1%'
+         OR image_url LIKE 'https://127.0.0.1%'
+       )`,
+    () => {}
+  );
 });
 

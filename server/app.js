@@ -13,13 +13,7 @@ const { runListingCleanup } = require("./utils/listingCleanup");
 
 const app = express();
 
-// Ensure uploads folder exists
 const uploadsDir = path.join(__dirname, "uploads");
-try {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-} catch {
-  // non-fatal
-}
 
 // Middleware
 const allowedOrigins = [
@@ -49,8 +43,16 @@ app.use(
 app.use(cookieParser());
 app.use(express.json());
 
-// Static files
-app.use("/uploads", express.static(uploadsDir));
+// Static files (dev only).
+// In production we store images in R2, and we don't want the app to depend on gitignored local uploads.
+if (process.env.NODE_ENV !== "production") {
+  try {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  } catch {
+    // non-fatal
+  }
+  app.use("/uploads", express.static(uploadsDir));
+}
 
 // Routes
 app.use("/api/health", healthRoutes);

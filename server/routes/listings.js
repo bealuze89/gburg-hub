@@ -15,6 +15,14 @@ function absoluteUrl(req, maybePath) {
 	if (!maybePath || typeof maybePath !== "string") return null;
 	const value = maybePath.trim();
 	if (!value) return null;
+
+	// Old deployments stored local-disk upload paths (gitignored) like /uploads/...
+	// These will 404 in production and cause mixed-content / broken image requests.
+	// Treat them as missing so the frontend shows a placeholder instead.
+	if (value.startsWith("/uploads/") || value.startsWith("uploads/")) return null;
+	if (/^https?:\/\/localhost(?::\d+)?\//i.test(value)) return null;
+	if (/^https?:\/\/127\.0\.0\.1(?::\d+)?\//i.test(value)) return null;
+
 	if (/^https?:\/\//i.test(value)) return value;
 	if (value.startsWith("/")) return `${req.protocol}://${req.get("host")}${value}`;
 	return `${req.protocol}://${req.get("host")}/${value}`;
