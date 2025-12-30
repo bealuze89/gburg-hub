@@ -9,6 +9,7 @@ require("./db");
 const healthRoutes = require("./routes/health");
 const authRoutes = require("./routes/auth");
 const listingsRoutes = require("./routes/listings");
+const debugRoutes = require("./routes/debug");
 const { runListingCleanup } = require("./utils/listingCleanup");
 
 const app = express();
@@ -58,6 +59,7 @@ if (process.env.NODE_ENV !== "production") {
 app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api", listingsRoutes);
+app.use("/api/debug", debugRoutes);
 
 // Start server
 const PORT = process.env.PORT || 3000;
