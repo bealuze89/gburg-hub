@@ -1,8 +1,9 @@
-const nodemailer = require("nodemailer");
 const fs = require("fs");
 const path = require("path");
+const { Resend } = require("resend");
 
-let didLogSmtpConfig = false;
+let didLogEmailConfig = false;
+let cachedResendClient = null;
 
 function getDevLogPath() {
   const configured = process.env.VERIFICATION_LOG_PATH;
@@ -20,57 +21,44 @@ function appendDevLog(line) {
   }
 }
 
-function makeTransporter() {
-  const host = process.env.MAIL_HOST;
-  const port = Number(process.env.MAIL_PORT || 587);
-  const user = process.env.MAIL_USER;
-  const pass = process.env.MAIL_PASS;
+function getResendClient() {
+  const apiKey = process.env.RESEND_API_KEY;
+  const hasKey = typeof apiKey === "string" && apiKey.trim().length > 0;
 
-  const hasConfig = Boolean(host && user && pass);
-
-  // Log once at startup (no secrets).
-  if (!didLogSmtpConfig) {
-    didLogSmtpConfig = true;
-    if (host) {
-      console.log(`[email] SMTP host=${host} port=${port} configured=${hasConfig}`);
-    } else {
-      console.log("[email] SMTP not configured (missing MAIL_HOST)");
-    }
+  // Log once per process (no secrets).
+  if (!didLogEmailConfig) {
+    didLogEmailConfig = true;
+    console.log(`[email] provider=resend configured=${hasKey}`);
   }
 
-  if (!hasConfig) return null;
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: false,
-    requireTLS: true,
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 10_000,
-    auth: {
-      user,
-      pass,
-    },
-  });
+  if (!hasKey) return null;
+  if (!cachedResendClient) {
+    cachedResendClient = new Resend(apiKey.trim());
+  }
+  return cachedResendClient;
 }
 
 async function sendVerificationCode(email, code) {
   try {
-    const transporter = makeTransporter();
+    const resend = getResendClient();
 
     const stamp = new Date().toISOString();
     const devLine = `[${stamp}] Verification code for ${email}: ${code}`;
 
-    // DEV MODE: no email credentials → just log the code
-    if (!transporter) {
+    // DEV MODE: no provider credentials → just log the code
+    if (!resend) {
       console.log(`[DEV MODE] Verification code for ${email}: ${code}`);
       appendDevLog(devLine);
       return;
     }
 
-    await transporter.sendMail({
-      from: process.env.MAIL_FROM,
+    const from = process.env.MAIL_FROM;
+    if (!from || typeof from !== "string" || !from.trim()) {
+      throw new Error("MAIL_FROM is not configured");
+    }
+
+    await resend.emails.send({
+      from: from.trim(),
       to: email,
       subject: "Your Burg Market verification code",
       text: `Your verification code is: ${code}\n\nThis code expires in 10 minutes.`,
@@ -86,20 +74,25 @@ async function sendVerificationCode(email, code) {
 
 async function sendListingExpiryWarning(email, { title, listingId, daysLeft }) {
   try {
-    const transporter = makeTransporter();
+    const resend = getResendClient();
 
     const safeTitle = typeof title === "string" ? title.trim() : "your listing";
     const safeDaysLeft = Number.isFinite(Number(daysLeft)) ? Number(daysLeft) : 1;
 
-    if (!transporter) {
+    if (!resend) {
       console.log(
         `[DEV MODE] Expiry warning to ${email}: Listing #${listingId} (${safeTitle}) expires in ${safeDaysLeft} day(s).`
       );
       return;
     }
 
-    await transporter.sendMail({
-      from: process.env.MAIL_FROM,
+    const from = process.env.MAIL_FROM;
+    if (!from || typeof from !== "string" || !from.trim()) {
+      throw new Error("MAIL_FROM is not configured");
+    }
+
+    await resend.emails.send({
+      from: from.trim(),
       to: email,
       subject: "Your Burg Market listing will expire soon",
       text:
